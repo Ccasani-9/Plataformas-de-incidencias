@@ -16,7 +16,8 @@ Registro de averías en estaciones de bicicletas compartidas.
 | PR B (Redis) | https://github.com/Ccasani-9/Plataformas-de-incidencias/pull/2 |
 | PR C (PieHost) | https://github.com/Ccasani-9/Plataformas-de-incidencias/pull/3 |
 | URL de Render | https://plataformas-de-incidencias.onrender.com |
-| Commit desplegado | Se muestra en el pie de cada página (`RENDER_GIT_COMMIT`) y en Render → *Events*. Es el último commit de `main`. |
+| Commit desplegado | El último commit de `main`. Se muestra en el pie de cada página (`RENDER_GIT_COMMIT`) y en Render → *Events*. Se comprueba con `git rev-parse --short origin/main`. |
+| PR adicionales | #4 (README de entrega), #5 y #6 (correcciones detectadas al probar en producción, ver más abajo) |
 
 ## Usuarios de prueba
 
@@ -97,6 +98,11 @@ Las ramas A, B y C nacen del mismo commit inicial de `main` (`cc3d5eb`). Las tre
 
 Para verlo: `git log --graph --oneline --all`
 
+Después de las tres funcionalidades se fusionaron, también por PR y sin tocar `main` directamente:
+- **PR #4:** README de entrega y commit desplegado en el pie de página.
+- **PR #5:** en producción la búsqueda devolvía 0 resultados. `JsonContent` serializa en camelCase, así que los registros llegaban a Algolia como `estacion`/`descripcion`, mientras los atributos buscables eran `Estacion`/`Descripcion`.
+- **PR #6:** por la misma causa, el evento se publicaba como `{"id":..,"estado":..}`. Ahora se publica con `Id` y `Estado`, como pide el enunciado. Además, la pantalla muestra "No hay incidencias abiertas" cuando el WebSocket retira la última fila.
+
 ### Resolución 1 (`4872fa2`): main (con A) incorporado en B
 Conflictos en `OperacionesController.cs` y `Incidencias.cshtml`.
 - **Controlador:** el constructor recibe **ambos** servicios, `AlgoliaBusquedaService` y `CacheIncidenciasService`. Sin texto de búsqueda, el listado sale de Redis o de la base. Con texto, se consulta Algolia sin pasar por la caché.
@@ -122,7 +128,18 @@ Conflictos en `OperacionesController.cs`, `Program.cs` e `Incidencias.cshtml`.
   ```
   Con credenciales, la última línea es `PieHost: publicado IncidenciaActualizada {Id=5, Estado=Cerrada} en canal incidencias`.
 
-### En Render (producción)
+### Resultados obtenidos en Render (producción)
+| Prueba | Resultado |
+|---|---|
+| URL pública y login del supervisor | Responde HTTP 200 y el login funciona. Sin sesión, `/Operaciones/Incidencias` redirige al login. |
+| Operador intentando cerrar | `AccessDenied` (solo el supervisor puede cerrar). |
+| Algolia | "anclaje" → #6 y #1; "Parque Kennedy" → #7 y #2; "freno" → #3. |
+| Algolia sin cerradas | Tras cerrar la #1, "anclaje" solo devuelve la #6. |
+| Redis | Los logs alternan `BASE DE DATOS (miss…)` y `REDIS (hit…)`. La clave expira a los 60 s y se invalida al cerrar. |
+| PieHost | Un cliente WebSocket conectado al canal recibió `IncidenciaActualizada` al cerrar la #1, sin recargar. |
+| Claves | El HTML no contiene el App ID ni las claves de Algolia, ni el secreto de PieHost. |
+
+### Cómo repetir las pruebas en Render
 1. Entrar con `supervisor@incidencias.com`.
 2. **Algolia:** buscar "anclaje" y comprobar que devuelve las incidencias de ese texto. Cerrar una y repetir la búsqueda: la cerrada ya no aparece.
 3. **Redis:** recargar el listado general dos veces. En Render → *Logs* aparece `Listado leído desde REDIS (hit…)`.

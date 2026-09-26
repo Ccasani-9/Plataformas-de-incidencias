@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace Incidencias.Services;
 
@@ -10,6 +11,9 @@ namespace Incidencias.Services;
 public class PieHostPublisher
 {
     public const string EventoIncidenciaActualizada = "IncidenciaActualizada";
+
+    // PostAsJsonAsync usa camelCase por defecto; el evento debe llevar exactamente Id y Estado.
+    private static readonly JsonSerializerOptions NombresExactos = new();
 
     private readonly HttpClient _http;
     private readonly IConfiguration _config;
@@ -58,7 +62,7 @@ public class PieHostPublisher
 
         try
         {
-            using var response = await _http.PostAsJsonAsync($"https://{Host(cluster)}/api/publish", cuerpo, ct);
+            using var response = await _http.PostAsJsonAsync($"https://{Host(cluster)}/api/publish", cuerpo, NombresExactos, ct);
             var respuesta = await response.Content.ReadAsStringAsync(ct);
             if (response.IsSuccessStatusCode)
                 _logger.LogInformation("PieHost: publicado {Evento} {{Id={Id}, Estado={Estado}}} en canal {Canal}", EventoIncidenciaActualizada, id, estado, canal);
