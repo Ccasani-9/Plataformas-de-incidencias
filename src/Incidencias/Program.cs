@@ -1,4 +1,5 @@
 using Incidencias.Data;
+using Incidencias.Services;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +20,7 @@ builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.Requ
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>();
 builder.Services.AddControllersWithViews();
+builder.Services.AddHttpClient<AlgoliaBusquedaService>();
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -32,6 +34,18 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     await SeedData.InicializarAsync(scope.ServiceProvider);
+
+    // Carga el índice de Algolia con las incidencias de prueba (solo si hay clave de administración en el servidor).
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        await scope.ServiceProvider.GetRequiredService<AlgoliaBusquedaService>()
+            .IndexarAsync(await db.Incidencias.AsNoTracking().ToListAsync());
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "No se pudo sincronizar el índice de Algolia");
+    }
 }
 
 app.UseForwardedHeaders();
