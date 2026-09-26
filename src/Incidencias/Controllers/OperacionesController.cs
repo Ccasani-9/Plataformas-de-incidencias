@@ -13,12 +13,15 @@ public class OperacionesController : Controller
     private readonly ApplicationDbContext _db;
     private readonly ILogger<OperacionesController> _logger;
     private readonly AlgoliaBusquedaService _algolia;
+    private readonly CacheIncidenciasService _cache;
 
-    public OperacionesController(ApplicationDbContext db, ILogger<OperacionesController> logger, AlgoliaBusquedaService algolia)
+    public OperacionesController(ApplicationDbContext db, ILogger<OperacionesController> logger,
+        AlgoliaBusquedaService algolia, CacheIncidenciasService cache)
     {
         _db = db;
         _logger = logger;
         _algolia = algolia;
+        _cache = cache;
     }
 
     // GET /Operaciones/Incidencias?q=texto
@@ -72,12 +75,17 @@ public class OperacionesController : Controller
         await _db.SaveChangesAsync();
         _logger.LogInformation("Incidencia {Id} cerrada en la base de datos", id);
 
+        // Invalidar el listado cacheado antes de volver a consultarlo.
+        await _cache.InvalidarAsync();
+
         return RedirectToAction(nameof(Incidencias));
     }
 
+    // Listado general: Redis con expiración de 60 s; si no está en caché se lee de la base.
     private Task<List<Incidencia>> ListarAbiertasAsync() =>
-        _db.Incidencias.AsNoTracking()
-            .Where(i => i.Estado == EstadosIncidencia.Abierta)
-            .OrderBy(i => i.Id)
-            .ToListAsync();
+        _cache.ObtenerListadoAsync(() =>
+            _db.Incidencias.AsNoTracking()
+                .Where(i => i.Estado == EstadosIncidencia.Abierta)
+                .OrderBy(i => i.Id)
+                .ToListAsync());
 }
