@@ -1,5 +1,6 @@
 using Incidencias.Data;
 using Incidencias.Models;
+using Incidencias.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,18 +12,50 @@ public class OperacionesController : Controller
 {
     private readonly ApplicationDbContext _db;
     private readonly ILogger<OperacionesController> _logger;
+    private readonly AlgoliaBusquedaService _algolia;
 
-    public OperacionesController(ApplicationDbContext db, ILogger<OperacionesController> logger)
+    public OperacionesController(ApplicationDbContext db, ILogger<OperacionesController> logger, AlgoliaBusquedaService algolia)
     {
         _db = db;
         _logger = logger;
+        _algolia = algolia;
     }
 
-    // GET /Operaciones/Incidencias
-    public async Task<IActionResult> Incidencias()
+    // GET /Operaciones/Incidencias?q=texto
+    public async Task<IActionResult> Incidencias(string? q)
     {
-        var abiertas = await ListarAbiertasAsync();
-        return View(abiertas);
+        ViewData["Busqueda"] = q;
+
+        if (string.IsNullOrWhiteSpace(q))
+        {
+            var abiertas = await ListarAbiertasAsync();
+            return View(abiertas);
+        }
+
+        return View(await BuscarAbiertasAsync(q.Trim()));
+    }
+
+    // El servidor consulta Algolia y solo muestra incidencias que existen en la base y siguen abiertas.
+    private async Task<List<Incidencia>> BuscarAbiertasAsync(string texto)
+    {
+        List<int> ids;
+        try
+        {
+            ids = await _algolia.BuscarIdsAsync(texto);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error consultando Algolia");
+            ViewData["ErrorBusqueda"] = "No se pudo consultar el índice de búsqueda.";
+            return new List<Incidencia>();
+        }
+
+        var encontradas = await _db.Incidencias.AsNoTracking()
+            .Where(i => ids.Contains(i.Id) && i.Estado == EstadosIncidencia.Abierta)
+            .ToListAsync();
+
+        // Mantener el orden de relevancia devuelto por Algolia.
+        return encontradas.OrderBy(i => ids.IndexOf(i.Id)).ToList();
     }
 
     // POST /Operaciones/Cerrar/5

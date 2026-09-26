@@ -4,7 +4,23 @@
     var esSupervisor = User.IsInRole(Incidencias.Data.SeedData.RolSupervisor);
 }
 
-<h1>Incidencias abiertas</h1>
+<h1>Incidencias abiertas encontradas</h1>
+
+<form method="get" asp-action="Incidencias" class="row g-2 mb-3" role="search">
+    <div class="col-sm-8">
+        <input type="search" name="q" value="@ViewData["Busqueda"]" class="form-control"
+               placeholder="Buscar por estación o descripción" />
+    </div>
+    <div class="col-sm-4">
+        <button type="submit" class="btn btn-primary">Buscar</button>
+        <a asp-action="Incidencias" class="btn btn-outline-secondary">Limpiar</a>
+    </div>
+</form>
+
+@if (ViewData["ErrorBusqueda"] is string errorBusqueda)
+{
+    <div class="alert alert-warning">@errorBusqueda</div>
+}
 
 <p class="text-muted">Total: <span id="total-incidencias">@Model.Count</span></p>
 
