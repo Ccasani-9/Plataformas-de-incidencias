@@ -11,6 +11,22 @@
 <p><span id="estado-ws" class="badge bg-secondary">WebSocket: conectando…</span></p>
 <div id="aviso-ws" class="alert alert-info" hidden></div>
 
+<form method="get" asp-action="Incidencias" class="row g-2 mb-3" role="search">
+    <div class="col-sm-8">
+        <input type="search" name="q" value="@ViewData["Busqueda"]" class="form-control"
+               placeholder="Buscar por estación o descripción" />
+    </div>
+    <div class="col-sm-4">
+        <button type="submit" class="btn btn-primary">Buscar</button>
+        <a asp-action="Incidencias" class="btn btn-outline-secondary">Limpiar</a>
+    </div>
+</form>
+
+@if (ViewData["ErrorBusqueda"] is string errorBusqueda)
+{
+    <div class="alert alert-warning">@errorBusqueda</div>
+}
+
 <p class="text-muted">Total: <span id="total-incidencias">@Model.Count</span></p>
 
 <table class="table table-striped align-middle">

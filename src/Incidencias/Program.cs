@@ -3,6 +3,7 @@ using Incidencias.Services;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,7 +21,17 @@ builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.Requ
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>();
 builder.Services.AddControllersWithViews();
+builder.Services.AddHttpClient<AlgoliaBusquedaService>();
 builder.Services.AddHttpClient<PieHostPublisher>();
+
+// Redis (variable de entorno Redis__ConnectionString). Sin cadena, el listado se lee siempre de la base.
+var redisConnection = builder.Configuration["Redis:ConnectionString"];
+if (!string.IsNullOrWhiteSpace(redisConnection))
+{
+    builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+        ConnectionMultiplexer.Connect(CacheIncidenciasService.CrearOpciones(redisConnection)));
+}
+builder.Services.AddScoped<CacheIncidenciasService>();
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -34,6 +45,18 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     await SeedData.InicializarAsync(scope.ServiceProvider);
+
+    // Carga el índice de Algolia con las incidencias de prueba (solo si hay clave de administración en el servidor).
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        await scope.ServiceProvider.GetRequiredService<AlgoliaBusquedaService>()
+            .IndexarAsync(await db.Incidencias.AsNoTracking().ToListAsync());
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "No se pudo sincronizar el índice de Algolia");
+    }
 }
 
 app.UseForwardedHeaders();
