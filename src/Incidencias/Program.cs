@@ -1,7 +1,9 @@
 using Incidencias.Data;
+using Incidencias.Services;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +21,15 @@ builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.Requ
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>();
 builder.Services.AddControllersWithViews();
+
+// Redis (variable de entorno Redis__ConnectionString). Sin cadena, el listado se lee siempre de la base.
+var redisConnection = builder.Configuration["Redis:ConnectionString"];
+if (!string.IsNullOrWhiteSpace(redisConnection))
+{
+    builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+        ConnectionMultiplexer.Connect(CacheIncidenciasService.CrearOpciones(redisConnection)));
+}
+builder.Services.AddScoped<CacheIncidenciasService>();
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
