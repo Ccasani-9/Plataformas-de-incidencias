@@ -22,6 +22,7 @@ builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.Requ
     .AddEntityFrameworkStores<ApplicationDbContext>();
 builder.Services.AddControllersWithViews();
 builder.Services.AddHttpClient<AlgoliaBusquedaService>();
+builder.Services.AddHttpClient<PieHostPublisher>();
 
 // Redis (variable de entorno Redis__ConnectionString). Sin cadena, el listado se lee siempre de la base.
 var redisConnection = builder.Configuration["Redis:ConnectionString"];

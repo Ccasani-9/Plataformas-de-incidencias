@@ -14,14 +14,16 @@ public class OperacionesController : Controller
     private readonly ILogger<OperacionesController> _logger;
     private readonly AlgoliaBusquedaService _algolia;
     private readonly CacheIncidenciasService _cache;
+    private readonly PieHostPublisher _pieHost;
 
     public OperacionesController(ApplicationDbContext db, ILogger<OperacionesController> logger,
-        AlgoliaBusquedaService algolia, CacheIncidenciasService cache)
+        AlgoliaBusquedaService algolia, CacheIncidenciasService cache, PieHostPublisher pieHost)
     {
         _db = db;
         _logger = logger;
         _algolia = algolia;
         _cache = cache;
+        _pieHost = pieHost;
     }
 
     // GET /Operaciones/Incidencias?q=texto
@@ -78,7 +80,21 @@ public class OperacionesController : Controller
         // Invalidar el listado cacheado antes de volver a consultarlo.
         await _cache.InvalidarAsync();
 
+        // Publicar solo después de persistir el nuevo estado.
+        await _pieHost.PublicarIncidenciaActualizadaAsync(incidencia.Id, incidencia.Estado);
+
         return RedirectToAction(nameof(Incidencias));
+    }
+
+    // GET /Operaciones/EstadoIncidencias — estado vigente, consultado por la pantalla al reconectar el WebSocket.
+    [HttpGet]
+    public async Task<IActionResult> EstadoIncidencias()
+    {
+        var abiertas = await _db.Incidencias.AsNoTracking()
+            .Where(i => i.Estado == EstadosIncidencia.Abierta)
+            .Select(i => new { i.Id, i.Estado })
+            .ToListAsync();
+        return Json(abiertas);
     }
 
     // Listado general: Redis con expiración de 60 s; si no está en caché se lee de la base.
