@@ -11,6 +11,10 @@ namespace Incidencias.Services;
 /// </summary>
 public class AlgoliaBusquedaService
 {
+    // JsonContent usa camelCase por defecto; Algolia distingue mayúsculas en los nombres
+    // de atributos, así que se serializa con los nombres exactos (Estacion, Descripcion...).
+    private static readonly JsonSerializerOptions NombresExactos = new();
+
     private readonly HttpClient _http;
     private readonly IConfiguration _config;
     private readonly ILogger<AlgoliaBusquedaService> _logger;
@@ -37,7 +41,7 @@ public class AlgoliaBusquedaService
             $"https://{AppId}-dsn.algolia.net/1/indexes/{Uri.EscapeDataString(IndexName)}/query");
         request.Headers.Add("X-Algolia-Application-Id", AppId);
         request.Headers.Add("X-Algolia-API-Key", _config["Algolia:SearchApiKey"]);
-        request.Content = JsonContent.Create(new { query = texto, hitsPerPage = 100 });
+        request.Content = JsonContent.Create(new { query = texto, hitsPerPage = 100 }, options: NombresExactos);
 
         using var response = await _http.SendAsync(request, ct);
         response.EnsureSuccessStatusCode();
@@ -70,7 +74,7 @@ public class AlgoliaBusquedaService
         {
             settings.Headers.Add("X-Algolia-Application-Id", AppId);
             settings.Headers.Add("X-Algolia-API-Key", adminKey);
-            settings.Content = JsonContent.Create(new { searchableAttributes = new[] { "Estacion", "Descripcion" } });
+            settings.Content = JsonContent.Create(new { searchableAttributes = new[] { "Estacion", "Descripcion" } }, options: NombresExactos);
             (await _http.SendAsync(settings, ct)).EnsureSuccessStatusCode();
         }
 
@@ -91,7 +95,7 @@ public class AlgoliaBusquedaService
         using var batch = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}/batch");
         batch.Headers.Add("X-Algolia-Application-Id", AppId);
         batch.Headers.Add("X-Algolia-API-Key", adminKey);
-        batch.Content = JsonContent.Create(new { requests });
+        batch.Content = JsonContent.Create(new { requests }, options: NombresExactos);
         (await _http.SendAsync(batch, ct)).EnsureSuccessStatusCode();
 
         _logger.LogInformation("Algolia: {Total} incidencias indexadas en '{Indice}'", requests.Count, IndexName);
