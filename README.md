@@ -15,7 +15,7 @@ Registro de averías en estaciones de bicicletas compartidas.
 | PR A (Algolia) | https://github.com/Ccasani-9/Plataformas-de-incidencias/pull/1 |
 | PR B (Redis) | https://github.com/Ccasani-9/Plataformas-de-incidencias/pull/2 |
 | PR C (PieHost) | https://github.com/Ccasani-9/Plataformas-de-incidencias/pull/3 |
-| URL de Render | _pendiente_ |
+| URL de Render | https://plataformas-de-incidencias.onrender.com |
 | Commit desplegado | Se muestra en el pie de cada página (`RENDER_GIT_COMMIT`) y en Render → *Events*. Es el último commit de `main`. |
 
 ## Usuarios de prueba
